@@ -1,70 +1,20 @@
 # app.R
 library(shiny)
 library(googlesheets4)
-library(googledrive)
 
-# Authentication configuration
-# For local development: set environment variables or use interactive auth
-# For Connect.cloud: set environment variables in the deployment settings
-# For shinyapps.io: set environment variables in the application settings
+# Deauthorize to access public sheets without authentication
+gs4_deauth()
 
-auth_method <- Sys.getenv("GOOGLE_AUTH_METHOD", "oauth")
-
-if (auth_method == "service_account") {
-  # Service account authentication (recommended for production)
-  service_account_key <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
-  
-  if (service_account_key != "") {
-    # Write the key to a temporary file
-    key_file <- tempfile(fileext = ".json")
-    writeLines(service_account_key, key_file)
-    
-    gs4_auth(path = key_file)
-    drive_auth(path = key_file)
-    
-    # Clean up
-    on.exit(unlink(key_file), add = TRUE)
-  } else {
-    stop("GOOGLE_SERVICE_ACCOUNT_KEY environment variable not set")
-  }
-  
-} else if (auth_method == "oauth") {
-  # OAuth authentication
-  email <- Sys.getenv("GOOGLE_AUTH_EMAIL")
-  
-  if (email == "") {
-    # Interactive authentication for local development
-    gs4_auth(email = TRUE)
-    drive_auth(email = TRUE)
-  } else {
-    # Use cached credentials with specific email
-    gs4_auth(
-      cache = ".secrets",
-      email = email,
-      use_oob = TRUE
-    )
-    
-    drive_auth(
-      cache = ".secrets", 
-      email = email,
-      use_oob = TRUE
-    )
-  }
-}
-
-# Google Sheet ID from environment variable
-SHEET_ID <- Sys.getenv("GOOGLE_SHEET_ID")
-
-if (SHEET_ID == "") {
-  stop("GOOGLE_SHEET_ID environment variable not set")
-}
+# Google Sheet ID from environment variable or hardcoded for testing
+SHEET_ID <- Sys.getenv("GOOGLE_SHEET_ID", "your-sheet-id-here")
 
 ui <- fluidPage(
-  titlePanel("Google Sheets Integration"),
+  titlePanel("Google Sheets Integration (Public Sheet)"),
   
   sidebarLayout(
     sidebarPanel(
       h3("Write Data"),
+      p("Note: Writing requires sheet to be publicly editable (not recommended)"),
       textInput("name", "Name:"),
       textInput("value", "Value:"),
       actionButton("write_btn", "Add to Sheet", class = "btn-primary"),

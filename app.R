@@ -5,23 +5,20 @@ library(googlesheets4)
 # Deauthorize to access public sheets without authentication
 gs4_deauth()
 
-# Google Sheet ID from environment variable or hardcoded for testing
-SHEET_ID <- Sys.getenv("GOOGLE_SHEET_ID", "your-sheet-id-here")
+# Google Sheet ID
+SHEET_ID <- "151X3VHUaGwcxEMXn3IEdhWKYYHxZCQ5P6_-bsGJV5wQ"
 
 ui <- fluidPage(
-  titlePanel("Google Sheets Integration (Public Sheet)"),
-  
+  titlePanel("Google Sheets Reader"),
+
   sidebarLayout(
     sidebarPanel(
-      h3("Write Data"),
-      p("Note: Writing requires sheet to be publicly editable (not recommended)"),
-      textInput("name", "Name:"),
-      textInput("value", "Value:"),
-      actionButton("write_btn", "Add to Sheet", class = "btn-primary"),
+      h3("Data Controls"),
+      actionButton("refresh_btn", "Reload Data", class = "btn-primary"),
       hr(),
-      actionButton("refresh_btn", "Refresh Data", class = "btn-info")
+      textOutput("last_updated")
     ),
-    
+
     mainPanel(
       h3("Current Sheet Data"),
       tableOutput("sheet_data")
@@ -30,13 +27,16 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  
+
   sheet_data <- reactiveVal(NULL)
-  
+  last_update <- reactiveVal(NULL)
+
   read_sheet_data <- function() {
     tryCatch({
       data <- read_sheet(SHEET_ID)
       sheet_data(data)
+      last_update(Sys.time())
+      showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(
         paste("Error reading sheet:", e$message),
@@ -44,46 +44,27 @@ server <- function(input, output, session) {
       )
     })
   }
-  
+
+  # Load data on startup
   observe({
     read_sheet_data()
   })
-  
-  observeEvent(input$write_btn, {
-    req(input$name, input$value)
-    
-    tryCatch({
-      new_row <- data.frame(
-        Name = input$name,
-        Value = input$value,
-        Timestamp = Sys.time(),
-        stringsAsFactors = FALSE
-      )
-      
-      sheet_append(SHEET_ID, new_row)
-      
-      showNotification("Data added successfully!", type = "message")
-      
-      updateTextInput(session, "name", value = "")
-      updateTextInput(session, "value", value = "")
-      
-      read_sheet_data()
-      
-    }, error = function(e) {
-      showNotification(
-        paste("Error writing to sheet:", e$message),
-        type = "error"
-      )
-    })
-  })
-  
+
+  # Reload button
   observeEvent(input$refresh_btn, {
     read_sheet_data()
-    showNotification("Data refreshed!", type = "message")
   })
-  
+
   output$sheet_data <- renderTable({
     sheet_data()
+  })
+
+  output$last_updated <- renderText({
+    if (!is.null(last_update())) {
+      paste("Last updated:", format(last_update(), "%Y-%m-%d %H:%M:%S"))
+    } else {
+      "Not loaded yet"
+    }
   })
 }
 
